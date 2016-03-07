@@ -9,13 +9,21 @@ import std.array : array;
 import std.datetime : msecs;
 import std.file : getcwd;
 import std.getopt;
-import std.path : pathSplitter, buildPath;
+import std.path : pathSplitter;
 import std.process : environment;
 import std.range : empty, take;
 import std.traits : isSomeString;
 import std.utf : count, stride;
+import std.stdio;
 
 import help;
+
+// NOTE(dkg): see systempath.d and git.d for details about this
+version (Windows) version = PathFixNeeded;
+version (Cygwin) version = PathFixNeeded;
+
+import std.path : customBuildPath = buildPath;
+
 
 void main(string[] args)
 {
@@ -38,14 +46,50 @@ void main(string[] args)
 		writeAndFail(ex.msg, "\n", helpString);
 	}
 
+	// NOTE(dkg): on Windows (under Cygwin even) env["HOME"] will include
+	//            the drive letter and the path is a Windows style path
+	// Another problem is that home and cwd will result in
+	// home, cwd: C:\Cygwin\home\dkg, C:\Users\dkg\Projekte\d\promptd
+	// in Cygwin, so the homeToTilde function will not work here.
+	// When you convert both paths via cygpath to Unix style path they are 
+	// different as well:
+	// home, cwd: /home/dkg, /cygdrive/c/Users/dkg/Projekte/d/promptd
+	version(PathFixNeeded)
+	{
+		import std.process : execute;
+		import std.string : strip, indexOf;
+		import std.array : replace;
 
-	immutable string home = environment["HOME"].ifThrown("");
-	immutable string cwd = getcwd().ifThrown(environment["PWD"]).ifThrown("???");
+		bool isCygWinEnv = environment.get("SHELL", "") != "" && 
+			environment.get("TERM", "") != "";
+		string home = environment["HOME"].ifThrown("");
+		string cwd  = getcwd().ifThrown(environment["PWD"]).ifThrown("???");
+
+		if (isCygWinEnv && home.indexOf(":") > -1) {
+			// sigh, yeah, see NOTE above as to why
+			// I want to get the real Unix style path here from Cygwin,
+			// not the Windows style one.
+			auto homePath = execute(["cygpath", "-u", home]);
+			home = homePath.output.strip();
+			auto cwdPath = execute(["cygpath", "-u", cwd]);
+			cwd = cwdPath.output.strip().replace("\\", "/");
+		}
+	}
+	else
+	{
+		immutable string home = environment["HOME"].ifThrown("");
+		immutable string cwd = getcwd().ifThrown(environment["PWD"]).ifThrown("???");
+	}
 
 	string path = homeToTilde(cwd, home);
-
 	if (path.count >= shortenAt)
 		path = shorten(path, shortenNumChars);
+
+	version (PathFixNeeded)
+	{
+		if (isCygWinEnv && path.indexOf("\\") > -1)
+			path = path.replace("\\", "/");
+	}
 
 	write(path);
 }
@@ -93,7 +137,7 @@ pure string homeToTilde(string cwd, string home)
 pure string shorten(string path, int numChars = 1)
 {
 	auto pathTokens = pathSplitter(path).array;
-
+	
 	if (pathTokens.length < 2)
 		return path;
 
@@ -107,7 +151,7 @@ pure string shorten(string path, int numChars = 1)
 	else
 		rest = rest.map!(s => firstOf(s, numChars)).array;
 
-	return buildPath(rest ~ last);
+	return customBuildPath(rest ~ last);
 }
 
 unittest

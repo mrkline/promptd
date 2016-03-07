@@ -1,5 +1,5 @@
 import std.stdio;
-import std.c.stdlib : exit;
+import core.stdc.stdlib : exit;
 
 /// Writes whatever you tell it and then exits the program successfully
 void writeAndSucceed(S...)(S toWrite)
