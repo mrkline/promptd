@@ -195,7 +195,6 @@ version(Windows)
 	return ret;
 
 } else version(Posix) {
-	writeln("On Posix");
 
 	// Currently we can only do this for Unix.
 	// Windows async pipe I/O (they call it "overlapped" I/O)
