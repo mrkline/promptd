@@ -18,11 +18,11 @@ package: clean release
 	gzip -f9 promptoglyph.tar
 	rm -r promptoglyph
 
-$(BUILD_DIR)/promptoglyph-path: promptoglyph-path.d help.d
+$(BUILD_DIR)/promptoglyph-path: promptoglyph-path.d systempath.d help.d
 	@mkdir -p $(BUILD_DIR)
 	$(DC) $(DFLAGS) -of$@ $^
 
-$(BUILD_DIR)/promptoglyph-vcs: promptoglyph-vcs.d help.d vcs.d time.d color.d git.d
+$(BUILD_DIR)/promptoglyph-vcs: promptoglyph-vcs.d systempath.d help.d vcs.d time.d color.d git.d
 	@mkdir -p $(BUILD_DIR)
 	$(DC) $(DFLAGS) -of$@ $^
 
